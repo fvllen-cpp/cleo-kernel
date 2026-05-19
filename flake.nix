@@ -23,6 +23,7 @@
           buildInputs = with pkgs; [
             git
             python3
+            cmake
             clang-tools
             qemu
           ];
