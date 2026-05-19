@@ -28,14 +28,14 @@ BreakBeforeBraces: Custom
 
 BraceWrapping:
     AfterCaseLabel: true
-    AfterClass: true
-    AfterControlStatement: Always
-    AfterEnum: true
-    AfterFunction: true
-    AfterNamespace: true
-    AfterStruct: true
-    AfterUnion: true
-    AfterExternBlock: true
+    AfterClass: false
+    AfterControlStatement: Never
+    AfterEnum: false
+    AfterFunction: false
+    AfterNamespace: false
+    AfterStruct: false
+    AfterUnion: false
+    AfterExternBlock: false
     BeforeCatch: true
     BeforeElse: true
     BeforeLambdaBody: true
@@ -47,7 +47,6 @@ BraceWrapping:
 # Functions
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortFunctionsOnASingleLine: None
-AlwaysBreakAfterDefinitionReturnType: TopLevel
 AlwaysBreakAfterReturnType: None
 
 BinPackParameters: false
