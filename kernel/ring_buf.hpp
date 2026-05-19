@@ -13,7 +13,11 @@ namespace cleo {
 template<typename T, std::size_t N>
 class RingBuffer {
 public:
-    RingBuffer();
+    RingBuffer()
+        : rb_{}
+        , head_(0)
+        , tail_(0) {};
+
     ~RingBuffer() = default;
 
     std::expected<void, cleo::error> push(const T& val) noexcept {
@@ -21,10 +25,10 @@ public:
             return std::unexpected(cleo::error::buffer_full);
         }
 
-        const auto head = head_.load(std::memory_order_relaxed);
+        const auto tail = tail_.load(std::memory_order_relaxed);
 
-        rb_[head % N] = val;
-        head_.store(head + 1, std::memory_order_release);
+        rb_[tail % N] = val;
+        tail_.store(tail + 1, std::memory_order_release);
         return {};
     }
 
@@ -33,10 +37,10 @@ public:
             return std::unexpected(cleo::error::buffer_full);
         }
 
-        const auto head = head_.load(std::memory_order_relaxed);
+        const auto tail = tail_.load(std::memory_order_relaxed);
 
-        rb_[head % N] = std::move(val);
-        head_.store(head + 1, std::memory_order_release);
+        rb_[tail % N] = std::move(val);
+        tail_.store(tail + 1, std::memory_order_release);
         return {};
     }
 
@@ -45,8 +49,8 @@ public:
             return std::unexpected(cleo::error::buffer_empty);
         }
 
-        const auto tail = tail_.load(std::memory_order_relaxed);
-        tail_.store(tail + 1, std::memory_order_release);
+        const auto head = head_.load(std::memory_order_relaxed);
+        head_.store(head + 1, std::memory_order_release);
         return {};
     }
 
@@ -67,7 +71,7 @@ public:
 
         const auto tail = tail_.load(std::memory_order_acquire);
 
-        return rb_[tail % N];
+        return rb_[(tail - 1) % N];
     }
 
     [[nodiscard]] bool full() const noexcept {
@@ -79,9 +83,9 @@ public:
     }
 
     [[nodiscard]] std::size_t size() const noexcept {
-        const auto head = head_.load(std::memory_order_relaxed);
-        const auto tail = tail_.load(std::memory_order_relaxed);
-        return static_cast<std::size_t>(head - tail);
+        const auto tail = tail_.load(std::memory_order_acquire);
+        const auto head = head_.load(std::memory_order_acquire);
+        return static_cast<std::size_t>(tail - head);
     }
 
 private:
