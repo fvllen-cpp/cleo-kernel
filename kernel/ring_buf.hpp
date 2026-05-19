@@ -1,3 +1,5 @@
+#pragma once
+
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -6,51 +8,63 @@
 
 #include "error.hpp"
 
-namespace cleo
-{
+namespace cleo {
 
 template<typename T, std::size_t N>
-class RingBuffer
-{
+class RingBuffer {
 public:
     RingBuffer();
     ~RingBuffer() = default;
 
-    std::expected<void, cleo::error> push(const T& val)
-    {
-        if (rb_.full())
-        {
+    std::expected<void, cleo::error> push(const T& val) noexcept {
+        if (full()) {
             return std::unexpected(cleo::error::buffer_full);
         }
 
-        const auto& head = head_.load(std::memory_order_relaxed);
+        const auto head = head_.load(std::memory_order_relaxed);
 
         rb_[head % N] = val;
         head_.store(head + 1, std::memory_order_release);
+        return {};
     }
 
-    std::expected<void, cleo::error> push(T&& val)
-    {
-        if (rb_.full())
-        {
+    std::expected<void, cleo::error> push(T&& val) noexcept {
+        if (full()) {
             return std::unexpected(cleo::error::buffer_full);
         }
 
-        const auto& head = head_.load(std::memory_order_relaxed);
+        const auto head = head_.load(std::memory_order_relaxed);
 
         rb_[head % N] = std::move(val);
         head_.store(head + 1, std::memory_order_release);
+        return {};
     }
 
-    [[nodiscard]] bool full() const noexcept
-    {
+    std::expected<void, cleo::error> pop() noexcept {
+        if (empty()) {
+            return std::unexpected(cleo::error::buffer_empty);
+        }
+
+        const auto tail = tail_.load(std::memory_order_relaxed);
+        tail_.store(tail + 1, std::memory_order_release);
+        return {};
+    }
+
+    [[nodiscard]] std::expected<T&, cleo::error> front() noexcept;
+
+    [[nodiscard]] std::expected<T&, cleo::error> back() noexcept;
+
+    [[nodiscard]] bool full() const noexcept {
         return size() == N;
     }
 
-    [[nodiscard]] std::size_t size() const noexcept
-    {
-        const auto& head = head_.load(std::memory_order_relaxed);
-        const auto& tail = tail_.load(std::memory_order_relaxed);
+    [[nodiscard]] bool empty() const noexcept {
+        return size() == 0;
+    }
+
+    [[nodiscard]] std::size_t size() const noexcept {
+        const auto head = head_.load(std::memory_order_relaxed);
+        const auto tail = tail_.load(std::memory_order_relaxed);
         return static_cast<std::size_t>(head - tail);
     }
 

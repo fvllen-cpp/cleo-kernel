@@ -1,9 +1,9 @@
+#pragma once
+
 #include <cstdint>
 
-namespace cleo
-{
-enum class error : uint32_t
-{
+namespace cleo {
+enum class error : uint32_t {
     ok = 0,
 
     // generic
