@@ -50,9 +50,25 @@ public:
         return {};
     }
 
-    [[nodiscard]] std::expected<T&, cleo::error> front() noexcept;
+    [[nodiscard]] std::expected<T&, cleo::error> front() noexcept {
+        if (empty()) {
+            return std::unexpected(cleo::error::buffer_empty);
+        }
 
-    [[nodiscard]] std::expected<T&, cleo::error> back() noexcept;
+        const auto head = head_.load(std::memory_order_acquire);
+
+        return rb_[head % N];
+    }
+
+    [[nodiscard]] std::expected<T&, cleo::error> back() noexcept {
+        if (empty()) {
+            return std::unexpected(cleo::error::buffer_empty);
+        }
+
+        const auto tail = tail_.load(std::memory_order_acquire);
+
+        return rb_[tail % N];
+    }
 
     [[nodiscard]] bool full() const noexcept {
         return size() == N;
