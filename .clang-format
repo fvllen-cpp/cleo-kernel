@@ -1,0 +1,154 @@
+Language: Cpp
+
+# Base Style
+BasedOnStyle: LLVM
+Standard: Latest
+
+# Indentation / Width
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+ColumnLimit: 100
+
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+
+AccessModifierOffset: -4
+IndentAccessModifiers: false
+
+IndentCaseLabels: true
+IndentCaseBlocks: true
+
+IndentGotoLabels: false
+IndentPPDirectives: None
+
+# Braces
+BreakBeforeBraces: Custom
+
+BraceWrapping:
+    AfterCaseLabel: true
+    AfterClass: true
+    AfterControlStatement: Always
+    AfterEnum: true
+    AfterFunction: true
+    AfterNamespace: true
+    AfterStruct: true
+    AfterUnion: true
+    AfterExternBlock: true
+    BeforeCatch: true
+    BeforeElse: true
+    BeforeLambdaBody: true
+    BeforeWhile: true
+    SplitEmptyFunction: false
+    SplitEmptyRecord: false
+    SplitEmptyNamespace: false
+
+# Functions
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortFunctionsOnASingleLine: None
+AlwaysBreakAfterDefinitionReturnType: TopLevel
+AlwaysBreakAfterReturnType: None
+
+BinPackParameters: false
+BinPackArguments: false
+
+PenaltyBreakBeforeFirstCallParameter: 1
+
+# Control Flow
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+
+# Classes / Constructors
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+
+# Templates / Concepts
+AlwaysBreakTemplateDeclarations: Yes
+
+BreakBeforeConceptDeclarations: Always
+
+SpaceAfterTemplateKeyword: false
+
+# Namespaces
+CompactNamespaces: false
+
+NamespaceIndentation: None
+
+FixNamespaceComments: true
+
+# Includes
+SortIncludes: true
+IncludeBlocks: Regroup
+
+IncludeCategories:
+    - Regex: "^<.*>$"
+      Priority: 1
+
+    - Regex: '^"cleo/'
+      Priority: 2
+
+    - Regex: '^".*"'
+      Priority: 3
+
+# Pointers / References
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+ReferenceAlignment: Left
+
+SpaceAroundPointerQualifiers: Default
+
+# Spaces
+SpaceBeforeParens: ControlStatements
+
+SpacesBeforeTrailingComments: 1
+
+SpacesInAngles: Never
+SpacesInContainerLiterals: false
+
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+
+# Alignment
+AlignAfterOpenBracket: BlockIndent
+
+AlignOperands: Align
+AlignTrailingComments: true
+
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignConsecutiveMacros: false
+
+# Line Breaking
+BreakBeforeBinaryOperators: NonAssignment
+
+BreakStringLiterals: true
+
+ReflowComments: true
+
+# Empty Lines
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+
+SeparateDefinitionBlocks: Always
+
+# Macros
+StatementMacros:
+    - CLEO_ASSERT
+    - CLEO_PANIC
+    - CLEO_UNREACHABLE
+
+# Misc
+Cpp11BracedListStyle: true
+
+InsertTrailingCommas: None
+
+SortUsingDeclarations: Lexicographic
+
+RequiresClausePosition: OwnLine
