@@ -247,3 +247,6 @@ Coroutines are preferred because:
 - Full determinism across many cores is hard
 - User-space drivers required robust IPC performance
 - Debugging the kernel itself 
+
+## Visualization
+- The goal is to interface with Perfetto to allow for trace, replay, and debug visualization

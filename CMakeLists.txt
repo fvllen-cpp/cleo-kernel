@@ -11,4 +11,27 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+add_library(cleo_warnings INTERFACE)
+target_compile_options(cleo_warnings INTERFACE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Wshadow
+    -Wconversion
+    -Wnon-virtual-dtor
+    -Wold-style-cast
+    -Wcast-align
+)
+
+add_library(cleo_freestanding INTERFACE)
+target_compile_options(cleo_freestanding INTERFACE
+    -ffreestanding
+    -nostdlib
+    -nostdlib++
+    -nostdinc
+    -nostdinc++
+    -fno-rtti
+    -fno-unwind-tables
+)
+
 add_subdirectory(kernel)

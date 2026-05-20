@@ -19,19 +19,22 @@
       devShells = forAllSystems (system: let
         pkgs = import nixpkgs {inherit system;};
       in {
-        default = pkgs.mkShell {
+        default = (pkgs.mkShell.override {stdenv = pkgs.clangStdenv;}) {
           buildInputs = with pkgs; [
             git
             python3
             cmake
             clang-tools
+            clang_22
+            lld
+            llvm
             qemu
           ];
         };
       });
 
       shellHook = ''
-        echo "Cleo Kernel ^(owo)^"
+        echo "Cleo Kernel ᓚᘏᗢ"
       '';
     }
   );

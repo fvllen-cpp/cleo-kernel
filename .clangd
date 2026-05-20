@@ -1,8 +1,9 @@
 CompileFlags:
   CompilationDatabase: build
-  Compiler: g++
+  Compiler: clang++
   Add:
-    - -std=gnu++23
+    - -std=c++23
+    - -stdlib=libc++
     - -xc++
 
 Diagnostics:
