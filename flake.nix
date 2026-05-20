@@ -24,6 +24,7 @@
             git
             python3
             cmake
+            gtest
             clang-tools
             clang_22
             lld

@@ -34,4 +34,11 @@ target_compile_options(cleo_freestanding INTERFACE
     -fno-unwind-tables
 )
 
+include(CTest)
+find_package(GTest REQUIRED CONFIG)
+
 add_subdirectory(kernel)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
