@@ -2,6 +2,5 @@
 .cache*/
 build/
 build*/
-.vscode/
 Testing/
 CMakeFiles/

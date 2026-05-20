@@ -1,0 +1,7 @@
+{
+  "clangd.arguments": [
+    "--compile-commands-dir=build",
+    "--query-driver=/nix/store/*/bin/clang++",
+    "--query-driver=/nix/store/*/bin/clang",
+  ]
+}
