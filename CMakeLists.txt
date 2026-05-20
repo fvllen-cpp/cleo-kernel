@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(Cleo LANGUAGES C CXX)
+project(Cleo LANGUAGES C CXX ASM)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -28,17 +28,20 @@ target_compile_options(cleo_freestanding INTERFACE
     -ffreestanding
     -nostdlib
     -nostdlib++
-    -nostdinc
-    -nostdinc++
+    -nostdlibinc
     -fno-rtti
     -fno-unwind-tables
 )
 
 include(CTest)
-find_package(GTest REQUIRED CONFIG)
 
 add_subdirectory(kernel)
 
 if(BUILD_TESTING)
+    find_package(GTest REQUIRED CONFIG)
     add_subdirectory(tests)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL Generic)
+    add_subdirectory(arch)
 endif()
