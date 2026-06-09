@@ -20,6 +20,10 @@ template<class T>
 
 template<class T>
 [[nodiscard]] constexpr T&& forward(cleo::remove_reference_t<T>&& t) noexcept {
+    static_assert(
+        !cleo::is_lvalue_reference_v<T>,
+        "cleo::forward must not be used to convert an rvalue to an lvalue"
+    );
     return static_cast<T&&>(t);
 }
 
