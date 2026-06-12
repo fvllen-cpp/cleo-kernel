@@ -251,6 +251,9 @@ struct is_reference<T&> : true_type {};
 template<typename T>
 struct is_reference<T&&> : true_type {};
 
+template<typename T>
+constexpr bool is_reference_v = is_reference<T>::value;
+
 // is_arithmetic
 template<typename T>
 struct is_arithmetic
@@ -369,8 +372,13 @@ inline constexpr bool is_rvalue_reference_v = is_rvalue_reference<T>::value;
 
 // is_member_object_pointer
 template<typename T>
-struct is_member_object_pointer
-    : integral_constant<bool, is_member_pointer_v<T> && !is_member_function_pointer_v<T>> {};
+struct is_member_function_pointer_helper : false_type {};
+
+template<typename T, typename U>
+struct is_member_function_pointer_helper<T U::*> : is_function<T> {};
+
+template<typename T>
+struct is_member_function_pointer : is_member_function_pointer_helper<remove_cv_t<T>> {};
 
 template<typename T>
 constexpr bool is_member_object_pointer_v = is_member_object_pointer<T>::value;
@@ -678,7 +686,7 @@ template<typename T>
 struct is_trivially_destructible : integral_constant<bool, __is_trivially_destructible(T)> {};
 
 template<typename T>
-constexpr bool is_trivially_destructible_v = is_trivially_destructible<T> : value;
+constexpr bool is_trivially_destructible_v = is_trivially_destructible<T>::value;
 
 // is_nothrow_constructible
 template<typename T, typename... Args>
