@@ -28,6 +28,13 @@ using bool_constant = integral_constant<bool, B>;
 using false_type = integral_constant<bool, false>;
 using true_type = integral_constant<bool, true>;
 
+namespace detail {
+template<typename T>
+struct type_identity {
+    using type = T;
+};
+} // namespace detail
+
 // [meta.trans.cv], const-volatile modifications
 
 // remove_cv
@@ -111,41 +118,8 @@ struct remove_reference<T&&> {
 template<typename T>
 using remove_reference_t = typename remove_reference<T>::type;
 
-// [meta.trans.other], Other transformations
-// conditional
-template<bool B, typename T, typename F>
-struct conditional {
-    using type = T;
-};
-
-template<typename T, typename F>
-struct conditional<false, T, F> {
-    using type = F;
-};
-
-template<bool B, typename T, typename F>
-using conditional_t = typename conditional<B, T, F>::type;
-
-// remove_cvref
-template<typename T>
-struct remove_cvref {
-    using type = remove_cv_t<remove_reference_t<T>>;
-};
-
-template<typename T>
-using remove_cvref_t = typename remove_cvref<T>::type;
-
-// void_t
-template<typename...>
-using void_t = void;
-
 // add_lvalue_reference
 namespace detail {
-template<typename T>
-struct type_identity {
-    using type = T;
-};
-
 template<typename T>
 auto try_add_lvalue_reference(int) -> type_identity<T&>;
 
@@ -174,43 +148,91 @@ struct add_rvalue_reference : decltype(detail::try_add_rvalue_reference<T>(0)) {
 template<typename T>
 using add_rvalue_reference_t = typename add_rvalue_reference<T>::type;
 
+// [meta.trans.ptr], pointer transformations
+// remove_pointer
+template<typename T>
+struct remove_pointer {
+    using type = T;
+};
+
+template<typename T>
+struct remove_pointer<T*> {
+    using type = T;
+};
+
+template<typename T>
+struct remove_pointer<T* const> {
+    using type = T;
+};
+
+template<typename T>
+struct remove_pointer<T* volatile> {
+    using type = T;
+};
+
+template<typename T>
+struct remove_pointer<T* const volatile> {
+    using type = T;
+};
+
+template<typename T>
+using remove_pointer_t = typename remove_pointer<T>::type;
+
+// add_pointer
+namespace detail {
+template<typename T>
+auto try_add_pointer(int) -> type_identity<remove_reference_t<T>*>;
+
+template<typename T>
+auto try_add_pointer(...) -> type_identity<T>;
+} // namespace detail
+
+template<typename T>
+struct add_pointer : decltype(detail::try_add_pointer<T>(0)) {};
+
+template<typename T>
+using add_pointer_t = typename add_pointer<T>::type;
+
 // [declval], declval
 template<typename T>
 add_rvalue_reference_t<T> declval() noexcept;
 
-// [meta.logical], logical operator traits
-// conjunction
-template<typename...>
-struct conjunction : true_type {};
+// [meta.trans.arr], array transformations
+template<typename T>
+struct remove_extent {
+    using type = T;
+};
 
-template<typename B1>
-struct conjunction<B1> : B1 {};
+template<typename T>
+struct remove_extent<T[]> {
+    using type = T;
+};
 
-template<typename B1, typename... Bn>
-struct conjunction<B1, Bn...> : conditional_t<bool(B1::value), conjunction<Bn...>, B1> {};
+template<typename T, size_t N>
+struct remove_extent<T[N]> {
+    using type = T;
+};
 
-template<typename... B>
-constexpr bool conjunction_v = conjunction<B...>::value;
+template<typename T>
+using remove_extent_t = typename remove_extent<T>::type;
 
-// disjunction
-template<typename...>
-struct disjunction : false_type {};
+template<typename T>
+struct remove_all_extents {
+    using type = T;
+};
 
-template<typename B1>
-struct disjunction<B1> : B1 {};
+template<typename T>
+struct remove_all_extents<T[]> {
+    using type = typename remove_all_extents<T>::type;
+};
 
-template<typename B1, typename... Bn>
-struct disjunction<B1, Bn...> : conditional_t<bool(B1::value), B1, disjunction<Bn...>> {};
+template<typename T, size_t N>
+struct remove_all_extents<T[N]> {
+    using type = typename remove_all_extents<T>::type;
+};
 
-template<typename... B>
-constexpr bool disjunction_v = disjunction<B...>::value;
-
-// negation
-template<typename B>
-struct negation : bool_constant<!bool(B::value)> {};
-
-template<typename B>
-constexpr bool negation_v = negation<B>::value;
+template<typename T>
+using remove_all_extents_t = typename remove_all_extents<T>::type;
 
 // [meta.rel], type relations (no dependency on the unary categories)
 
@@ -404,48 +426,12 @@ struct is_class : decltype(detail::test<T>(nullptr)) {};
 template<typename T>
 constexpr bool is_class_v = is_class<T>::value;
 
-// is_const (needed by is_function; tagged [meta.unary.prop])
-template<typename T>
-struct is_const : false_type {};
-
-template<typename T>
-struct is_const<const T> : true_type {};
-
-template<typename T>
-constexpr bool is_const_v = is_const<T>::value;
-
-// is_reference (needed by is_function; tagged [meta.unary.comp])
-template<typename T>
-struct is_reference : false_type {};
-
-template<typename T>
-struct is_reference<T&> : true_type {};
-
-template<typename T>
-struct is_reference<T&&> : true_type {};
-
-template<typename T>
-constexpr bool is_reference_v = is_reference<T>::value;
-
 // is_function
 template<typename T>
-struct is_function : integral_constant<bool, !is_const_v<const T> && !is_reference_v<T>> {};
+struct is_function : integral_constant<bool, __is_function(T)> {};
 
 template<typename T>
 constexpr bool is_function_v = is_function<T>::value;
-
-// is_member_pointer
-template<typename T>
-struct is_member_pointer_helper : false_type {};
-
-template<typename T, typename U>
-struct is_member_pointer_helper<T U::*> : true_type {};
-
-template<typename T>
-struct is_member_pointer : is_member_pointer_helper<remove_cv_t<T>> {};
-
-template<typename T>
-constexpr bool is_member_pointer_v = is_member_pointer<T>::value;
 
 // is_member_function_pointer (primitive: a pointer-to-member whose member is a function)
 template<typename T>
@@ -460,15 +446,46 @@ struct is_member_function_pointer : is_member_function_pointer_helper<remove_cv_
 template<typename T>
 constexpr bool is_member_function_pointer_v = is_member_function_pointer<T>::value;
 
-// is_member_object_pointer (complement of member-function pointer)
+// is_member_object_pointer
 template<typename T>
-struct is_member_object_pointer
-    : integral_constant<bool, is_member_pointer_v<T> && !is_member_function_pointer_v<T>> {};
+struct is_member_object_pointer_helper : false_type {};
+
+template<typename T, typename U>
+struct is_member_object_pointer_helper<T U::*> : bool_constant<!is_function_v<T>> {};
+
+template<typename T>
+struct is_member_object_pointer : is_member_object_pointer_helper<remove_cv_t<T>> {};
 
 template<typename T>
 constexpr bool is_member_object_pointer_v = is_member_object_pointer<T>::value;
 
 // [meta.unary.comp], Composite type categories
+
+// is_reference
+template<typename T>
+struct is_reference : false_type {};
+
+template<typename T>
+struct is_reference<T&> : true_type {};
+
+template<typename T>
+struct is_reference<T&&> : true_type {};
+
+template<typename T>
+constexpr bool is_reference_v = is_reference<T>::value;
+
+// is_member_pointer
+template<typename T>
+struct is_member_pointer_helper : false_type {};
+
+template<typename T, typename U>
+struct is_member_pointer_helper<T U::*> : true_type {};
+
+template<typename T>
+struct is_member_pointer : is_member_pointer_helper<remove_cv_t<T>> {};
+
+template<typename T>
+constexpr bool is_member_pointer_v = is_member_pointer<T>::value;
 
 // is_arithmetic
 template<typename T>
@@ -545,7 +562,7 @@ constexpr bool is_convertible_v = is_convertible<From, To>::value;
 
 // is_nothrow_convertible
 template<typename From, typename To>
-struct is_nothrow_convertible : cleo::conjunction<is_void<From>, is_void<To>> {};
+struct is_nothrow_convertible : bool_constant<is_void_v<From> && is_void_v<To>> {};
 
 template<typename From, class To>
     requires requires {
@@ -574,6 +591,16 @@ constexpr bool is_pointer_interconvertible_base_of_v =
     is_pointer_interconvertible_base_of<Base, Derived>::value;
 
 // [meta.unary.prop], Type properties
+
+// is_const
+template<typename T>
+struct is_const : false_type {};
+
+template<typename T>
+struct is_const<const T> : true_type {};
+
+template<typename T>
+constexpr bool is_const_v = is_const<T>::value;
 
 // is_volatile
 template<typename T>
@@ -906,6 +933,8 @@ struct has_unique_object_representations
 template<typename T>
 constexpr bool has_unique_object_representations_v = has_unique_object_representations<T>::value;
 
+// [meta.rel], type relations that depend on the unary categories
+
 // reference_constructs_from_temporary
 template<typename T, typename U>
 struct reference_constructs_from_temporary
@@ -923,6 +952,291 @@ struct reference_converts_from_temporary
 template<typename T, typename U>
 inline constexpr bool reference_converts_from_temporary_v =
     reference_converts_from_temporary<T, U>::value;
+
+// [meta.trans.other], Other transformations
+
+// type_identity
+template<typename T>
+struct type_identity {
+    using type = T;
+};
+
+template<typename T>
+using type_identity_t = typename type_identity<T>::type;
+
+// conditional
+template<bool B, typename T, typename F>
+struct conditional {
+    using type = T;
+};
+
+template<typename T, typename F>
+struct conditional<false, T, F> {
+    using type = F;
+};
+
+template<bool B, typename T, typename F>
+using conditional_t = typename conditional<B, T, F>::type;
+
+// void_t
+template<typename...>
+using void_t = void;
+
+// remove_cvref
+template<typename T>
+struct remove_cvref {
+    using type = remove_cv_t<remove_reference_t<T>>;
+};
+
+template<typename T>
+using remove_cvref_t = typename remove_cvref<T>::type;
+
+// decay
+template<typename T>
+struct decay {
+private:
+    using U = remove_reference_t<T>;
+
+public:
+    using type = conditional_t<
+        is_array_v<U>,
+        add_pointer_t<remove_extent_t<U>>,
+        conditional_t<is_function_v<U>, add_pointer_t<U>, remove_cv_t<U>>>;
+};
+
+template<typename T>
+using decay_t = typename decay<T>::type;
+
+// common_type
+template<typename... T>
+struct common_type {};
+
+template<typename T>
+struct common_type<T> : common_type<T, T> {};
+
+namespace detail {
+template<typename T1, typename T2>
+using conditional_result_t = decltype(false ? cleo::declval<T1>() : cleo::declval<T2>());
+
+template<typename, typename, typename = void>
+struct decay_conditional_result {};
+
+template<typename T1, typename T2>
+struct decay_conditional_result<T1, T2, void_t<conditional_result_t<T1, T2>>>
+    : decay<conditional_result_t<T1, T2>> {};
+
+template<typename T1, typename T2, typename = void>
+struct common_type_2_impl : decay_conditional_result<const T1&, const T2&> {};
+
+template<typename T1, typename T2>
+struct common_type_2_impl<T1, T2, void_t<conditional_result_t<T1, T2>>>
+    : decay_conditional_result<T1, T2> {};
+} // namespace detail
+
+template<typename T1, typename T2>
+struct common_type<T1, T2> : conditional_t<
+                                 is_same_v<T1, decay_t<T1>> && is_same_v<T2, decay_t<T2>>,
+                                 detail::common_type_2_impl<T1, T2>,
+                                 common_type<decay_t<T1>, decay_t<T2>>> {};
+
+namespace detail {
+template<typename AlwaysVoid, typename T1, typename T2, typename... R>
+struct common_type_multi_impl {};
+
+template<typename T1, typename T2, typename... R>
+struct common_type_multi_impl<void_t<typename common_type<T1, T2>::type>, T1, T2, R...>
+    : common_type<typename common_type<T1, T2>::type, R...> {};
+} // namespace detail
+
+template<typename T1, typename T2, typename... R>
+struct common_type<T1, T2, R...> : detail::common_type_multi_impl<void, T1, T2, R...> {};
+
+template<typename... T>
+using common_type_t = typename common_type<T...>::type;
+
+template<
+    typename T,
+    typename U,
+    template<typename> typename TQual,
+    template<typename> typename UQual>
+struct basic_common_reference {};
+
+// common_reference
+template<typename... T>
+struct common_reference {};
+
+template<typename... T>
+using common_reference_t = typename common_reference<T...>::type;
+
+template<>
+struct common_reference<> {};
+
+template<typename T>
+struct common_reference<T> {
+    using type = T;
+};
+
+namespace detail {
+template<typename From, typename To>
+struct copy_cv {
+    using type = To;
+};
+
+template<typename From, typename To>
+struct copy_cv<const From, To> {
+    using type = const To;
+};
+
+template<typename From, typename To>
+struct copy_cv<volatile From, To> {
+    using type = volatile To;
+};
+
+template<typename From, typename To>
+struct copy_cv<const volatile From, To> {
+    using type = const volatile To;
+};
+
+template<typename From, typename To>
+using copy_cv_t = typename copy_cv<From, To>::type;
+
+template<typename From, typename To>
+struct copy_cvref {
+    using type = copy_cv_t<From, To>;
+};
+
+template<typename From, typename To>
+struct copy_cvref<From&, To> {
+    using type = add_lvalue_reference_t<copy_cv_t<From, To>>;
+};
+
+template<typename From, typename To>
+struct copy_cvref<From&&, To> {
+    using type = add_rvalue_reference_t<copy_cv_t<From, To>>;
+};
+
+template<typename From, typename To>
+using copy_cvref_t = typename copy_cvref<From, To>::type;
+
+template<typename From>
+struct xref {
+    template<typename To>
+    using apply = copy_cvref_t<From, To>;
+};
+
+template<typename X, typename Y>
+using common_ref_lvalue_t =
+    decltype(false ? cleo::declval<copy_cv_t<X, Y>&>() : cleo::declval<copy_cv_t<Y, X>&>());
+
+template<typename T, typename U, typename = void>
+struct common_ref {};
+
+template<typename X, typename Y, bool>
+struct common_ref_lvalue_select {};
+
+template<typename X, typename Y>
+struct common_ref_lvalue_select<X, Y, true> {
+    using type = common_ref_lvalue_t<X, Y>;
+};
+
+template<typename X, typename Y>
+struct common_ref<X&, Y&, void_t<common_ref_lvalue_t<X, Y>>>
+    : common_ref_lvalue_select<X, Y, is_reference_v<common_ref_lvalue_t<X, Y>>> {};
+
+template<typename X, typename Y>
+using common_ref_rvalue_t =
+    add_rvalue_reference_t<remove_reference_t<typename common_ref<X&, Y&>::type>>;
+
+template<typename X, typename Y, bool>
+struct common_ref_rvalue_select {};
+
+template<typename X, typename Y>
+struct common_ref_rvalue_select<X, Y, true> {
+    using type = common_ref_rvalue_t<X, Y>;
+};
+
+template<typename X, typename Y>
+struct common_ref<X&&, Y&&, void_t<common_ref_rvalue_t<X, Y>>>
+    : common_ref_rvalue_select<
+          X,
+          Y,
+          is_convertible_v<X&&, common_ref_rvalue_t<X, Y>>
+              && is_convertible_v<Y&&, common_ref_rvalue_t<X, Y>>> {};
+
+template<typename X, typename Y>
+using common_ref_rvalue_lvalue_t = typename common_ref<const X&, Y&>::type;
+
+template<typename X, typename Y, bool>
+struct common_ref_rvalue_lvalue_select {};
+
+template<typename X, typename Y>
+struct common_ref_rvalue_lvalue_select<X, Y, true> {
+    using type = common_ref_rvalue_lvalue_t<X, Y>;
+};
+
+template<typename X, typename Y>
+struct common_ref<X&&, Y&, void_t<common_ref_rvalue_lvalue_t<X, Y>>>
+    : common_ref_rvalue_lvalue_select<
+          X,
+          Y,
+          is_convertible_v<X&&, common_ref_rvalue_lvalue_t<X, Y>>> {};
+
+template<typename X, typename Y>
+struct common_ref<X&, Y&&> : common_ref<Y&&, X&> {};
+
+template<typename T, typename U>
+using cond_res_t = decltype(false ? cleo::declval<T>() : cleo::declval<U>());
+
+template<typename T, typename U, typename = void>
+struct common_reference_step4 {};
+
+template<typename T, typename U>
+struct common_reference_step4<T, U, void_t<common_type_t<T, U>>> {
+    using type = common_type_t<T, U>;
+};
+
+template<typename T, typename U, typename = void>
+struct common_reference_step3 : common_reference_step4<T, U> {};
+
+template<typename T, typename U>
+struct common_reference_step3<T, U, void_t<cond_res_t<T, U>>> {
+    using type = cond_res_t<T, U>;
+};
+
+template<typename T, typename U, typename = void>
+struct common_reference_step2 : common_reference_step3<T, U> {};
+
+template<typename T, typename U>
+struct common_reference_step2<
+    T,
+    U,
+    void_t<typename basic_common_reference<
+        remove_cvref_t<T>,
+        remove_cvref_t<U>,
+        xref<T>::template apply,
+        xref<U>::template apply>::type>> {
+    using type = typename basic_common_reference<
+        remove_cvref_t<T>,
+        remove_cvref_t<U>,
+        xref<T>::template apply,
+        xref<U>::template apply>::type;
+};
+
+template<typename T, typename U, typename = void>
+struct common_reference_step1 : common_reference_step2<T, U> {};
+
+template<typename T, typename U>
+struct common_reference_step1<T, U, void_t<typename common_ref<T, U>::type>> {
+    using type = typename common_ref<T, U>::type;
+};
+} // namespace detail
+
+template<typename T, typename U>
+struct common_reference<T, U> : detail::common_reference_step1<T, U> {};
+
+template<typename T, typename U, typename... Rest>
+struct common_reference<T, U, Rest...>
+    : common_reference<typename common_reference<T, U>::type, Rest...> {};
 
 // member_pointer_class + INVOKE machinery - realizes [func.require] INVOKE
 namespace detail {
@@ -993,14 +1307,51 @@ struct invoke_result_impl<void_t<decltype(invoke_impl(declval<F>(), declval<A>()
 };
 } // namespace detail
 
-// invoke_result, [meta.trans.other]
+// invoke_result
 template<typename F, typename... Args>
 struct invoke_result : detail::invoke_result_impl<void, F, Args...> {};
 
 template<typename F, typename... Args>
 using invoke_result_t = typename invoke_result<F, Args...>::type;
 
-// is_invocable, [meta.rel]
+// [meta.logical], logical operator traits
+
+// conjunction
+template<typename...>
+struct conjunction : true_type {};
+
+template<typename B1>
+struct conjunction<B1> : B1 {};
+
+template<typename B1, typename... Bn>
+struct conjunction<B1, Bn...> : conditional_t<bool(B1::value), conjunction<Bn...>, B1> {};
+
+template<typename... B>
+constexpr bool conjunction_v = conjunction<B...>::value;
+
+// disjunction
+template<typename...>
+struct disjunction : false_type {};
+
+template<typename B1>
+struct disjunction<B1> : B1 {};
+
+template<typename B1, typename... Bn>
+struct disjunction<B1, Bn...> : conditional_t<bool(B1::value), B1, disjunction<Bn...>> {};
+
+template<typename... B>
+constexpr bool disjunction_v = disjunction<B...>::value;
+
+// negation
+template<typename B>
+struct negation : bool_constant<!bool(B::value)> {};
+
+template<typename B>
+constexpr bool negation_v = negation<B>::value;
+
+// [meta.rel], type relations that depend on INVOKE
+
+// is_invocable
 namespace detail {
 template<typename Void, typename F, typename... A>
 struct is_invocable_impl : false_type {};
