@@ -125,7 +125,7 @@ AlignConsecutiveDeclarations: false
 AlignConsecutiveMacros: false
 
 # Line Breaking
-BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBinaryOperators: None
 
 BreakStringLiterals: true
 
