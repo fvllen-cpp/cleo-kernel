@@ -4,6 +4,10 @@
 
 namespace cleo {
 
+// forward declarations
+template<typename T>
+class reference_wrapper;
+
 // [meta.help] Helper classes
 
 template<typename T, T v>
@@ -97,6 +101,24 @@ struct add_const {
 
 template<typename T>
 using add_const_t = typename add_const<T>::type;
+
+// add_volatile
+template<typename T>
+struct add_volatile {
+    using type = volatile T;
+};
+
+template<typename T>
+using add_volatile_t = typename add_volatile<T>::type;
+
+// add_cv
+template<typename T>
+struct add_cv {
+    using type = const volatile T;
+};
+
+template<typename T>
+using add_cv_t = typename add_cv<T>::type;
 
 // [meta.trans.ref], reference modifications
 // remove_reference
@@ -691,6 +713,13 @@ struct is_unsigned : detail::is_unsigned<T>::type {};
 template<typename T>
 constexpr bool is_unsigned_v = is_unsigned<T>::value;
 
+// is_trivial
+template<typename T>
+struct is_trivial : integral_constant<bool, __is_trivial(T)> {};
+
+template<typename T>
+constexpr bool is_trivial_v = is_trivial<T>::value;
+
 // is_bounded_array
 template<typename T>
 struct is_bounded_array : false_type {};
@@ -933,6 +962,46 @@ struct has_unique_object_representations
 template<typename T>
 constexpr bool has_unique_object_representations_v = has_unique_object_representations<T>::value;
 
+// [meta.unary.prop.query], Type property queries
+// alignment_of
+template<typename T>
+struct alignment_of : integral_constant<cleo::size_t, alignof(T)> {};
+
+template<typename T>
+constexpr cleo::size_t alignment_of_v = alignment_of<T>::value;
+
+// rank
+template<typename T>
+struct rank : public integral_constant<cleo::size_t, 0> {};
+
+template<typename T>
+struct rank<T[]> : public integral_constant<cleo::size_t, rank<T>::value + 1> {};
+
+template<typename T, cleo::size_t N>
+struct rank<T[N]> : public integral_constant<cleo::size_t, rank<T>::value + 1> {};
+
+template<typename T>
+constexpr cleo::size_t rank_v = rank<T>::value;
+
+// extent
+template<typename T, unsigned N = 0>
+struct extent : integral_constant<cleo::size_t, 0> {};
+
+template<typename T>
+struct extent<T[], 0> : integral_constant<cleo::size_t, 0> {};
+
+template<typename T, unsigned N>
+struct extent<T[], N> : extent<T, N - 1> {};
+
+template<typename T, cleo::size_t I>
+struct extent<T[I], 0> : integral_constant<cleo::size_t, I> {};
+
+template<typename T, cleo::size_t I, unsigned N>
+struct extent<T[I], N> : extent<T, N - 1> {};
+
+template<typename T, unsigned N = 0>
+constexpr cleo::size_t extent_v = extent<T, N>::value;
+
 // [meta.rel], type relations that depend on the unary categories
 
 // reference_constructs_from_temporary
@@ -953,7 +1022,312 @@ template<typename T, typename U>
 inline constexpr bool reference_converts_from_temporary_v =
     reference_converts_from_temporary<T, U>::value;
 
+// [meta.trans.sign]
+namespace detail {
+template<
+    cleo::size_t Size,
+    bool = (Size == sizeof(signed char)),
+    bool = (Size == sizeof(signed short)),
+    bool = (Size == sizeof(signed int)),
+    bool = (Size == sizeof(signed long)),
+    bool = (Size == sizeof(signed long long))>
+struct signed_integer_by_size {};
+
+template<cleo::size_t Size, bool Short, bool Int, bool Long, bool LongLong>
+struct signed_integer_by_size<Size, true, Short, Int, Long, LongLong> {
+    using type = signed char;
+};
+
+template<cleo::size_t Size, bool Int, bool Long, bool LongLong>
+struct signed_integer_by_size<Size, false, true, Int, Long, LongLong> {
+    using type = signed short;
+};
+
+template<cleo::size_t Size, bool Long, bool LongLong>
+struct signed_integer_by_size<Size, false, false, true, Long, LongLong> {
+    using type = signed int;
+};
+
+template<cleo::size_t Size, bool LongLong>
+struct signed_integer_by_size<Size, false, false, false, true, LongLong> {
+    using type = signed long;
+};
+
+template<cleo::size_t Size>
+struct signed_integer_by_size<Size, false, false, false, false, true> {
+    using type = signed long long;
+};
+
+template<
+    cleo::size_t Size,
+    bool = (Size == sizeof(unsigned char)),
+    bool = (Size == sizeof(unsigned short)),
+    bool = (Size == sizeof(unsigned int)),
+    bool = (Size == sizeof(unsigned long)),
+    bool = (Size == sizeof(unsigned long long))>
+struct unsigned_integer_by_size {};
+
+template<cleo::size_t Size, bool Short, bool Int, bool Long, bool LongLong>
+struct unsigned_integer_by_size<Size, true, Short, Int, Long, LongLong> {
+    using type = unsigned char;
+};
+
+template<cleo::size_t Size, bool Int, bool Long, bool LongLong>
+struct unsigned_integer_by_size<Size, false, true, Int, Long, LongLong> {
+    using type = unsigned short;
+};
+
+template<cleo::size_t Size, bool Long, bool LongLong>
+struct unsigned_integer_by_size<Size, false, false, true, Long, LongLong> {
+    using type = unsigned int;
+};
+
+template<cleo::size_t Size, bool LongLong>
+struct unsigned_integer_by_size<Size, false, false, false, true, LongLong> {
+    using type = unsigned long;
+};
+
+template<cleo::size_t Size>
+struct unsigned_integer_by_size<Size, false, false, false, false, true> {
+    using type = unsigned long long;
+};
+
+template<typename From, typename To>
+struct sign_copy_cv {
+    using type = To;
+};
+
+template<typename From, typename To>
+struct sign_copy_cv<const From, To> {
+    using type = const To;
+};
+
+template<typename From, typename To>
+struct sign_copy_cv<volatile From, To> {
+    using type = volatile To;
+};
+
+template<typename From, typename To>
+struct sign_copy_cv<const volatile From, To> {
+    using type = const volatile To;
+};
+
+template<typename T>
+struct make_signed_raw {};
+
+template<>
+struct make_signed_raw<char> : signed_integer_by_size<sizeof(char)> {};
+
+template<>
+struct make_signed_raw<signed char> {
+    using type = signed char;
+};
+
+template<>
+struct make_signed_raw<unsigned char> {
+    using type = signed char;
+};
+
+template<>
+struct make_signed_raw<wchar_t> : signed_integer_by_size<sizeof(wchar_t)> {};
+
+template<>
+struct make_signed_raw<char8_t> : signed_integer_by_size<sizeof(char8_t)> {};
+
+template<>
+struct make_signed_raw<char16_t> : signed_integer_by_size<sizeof(char16_t)> {};
+
+template<>
+struct make_signed_raw<char32_t> : signed_integer_by_size<sizeof(char32_t)> {};
+
+template<>
+struct make_signed_raw<signed short> {
+    using type = signed short;
+};
+
+template<>
+struct make_signed_raw<unsigned short> {
+    using type = signed short;
+};
+
+template<>
+struct make_signed_raw<signed int> {
+    using type = signed int;
+};
+
+template<>
+struct make_signed_raw<unsigned int> {
+    using type = signed int;
+};
+
+template<>
+struct make_signed_raw<signed long> {
+    using type = signed long;
+};
+
+template<>
+struct make_signed_raw<unsigned long> {
+    using type = signed long;
+};
+
+template<>
+struct make_signed_raw<signed long long> {
+    using type = signed long long;
+};
+
+template<>
+struct make_signed_raw<unsigned long long> {
+    using type = signed long long;
+};
+
+template<typename T>
+struct make_unsigned_raw {};
+
+template<>
+struct make_unsigned_raw<char> : unsigned_integer_by_size<sizeof(char)> {};
+
+template<>
+struct make_unsigned_raw<signed char> {
+    using type = unsigned char;
+};
+
+template<>
+struct make_unsigned_raw<unsigned char> {
+    using type = unsigned char;
+};
+
+template<>
+struct make_unsigned_raw<wchar_t> : unsigned_integer_by_size<sizeof(wchar_t)> {};
+
+template<>
+struct make_unsigned_raw<char8_t> : unsigned_integer_by_size<sizeof(char8_t)> {};
+
+template<>
+struct make_unsigned_raw<char16_t> : unsigned_integer_by_size<sizeof(char16_t)> {};
+
+template<>
+struct make_unsigned_raw<char32_t> : unsigned_integer_by_size<sizeof(char32_t)> {};
+
+template<>
+struct make_unsigned_raw<signed short> {
+    using type = unsigned short;
+};
+
+template<>
+struct make_unsigned_raw<unsigned short> {
+    using type = unsigned short;
+};
+
+template<>
+struct make_unsigned_raw<signed int> {
+    using type = unsigned int;
+};
+
+template<>
+struct make_unsigned_raw<unsigned int> {
+    using type = unsigned int;
+};
+
+template<>
+struct make_unsigned_raw<signed long> {
+    using type = unsigned long;
+};
+
+template<>
+struct make_unsigned_raw<unsigned long> {
+    using type = unsigned long;
+};
+
+template<>
+struct make_unsigned_raw<signed long long> {
+    using type = unsigned long long;
+};
+
+template<>
+struct make_unsigned_raw<unsigned long long> {
+    using type = unsigned long long;
+};
+
+template<typename T, bool = is_same_v<remove_cv_t<T>, bool>>
+struct make_signed_integral {};
+
+template<typename T>
+struct make_signed_integral<T, false> {
+    using type = typename sign_copy_cv<T, typename make_signed_raw<remove_cv_t<T>>::type>::type;
+};
+
+template<typename T, bool = is_same_v<remove_cv_t<T>, bool>>
+struct make_unsigned_integral {};
+
+template<typename T>
+struct make_unsigned_integral<T, false> {
+    using type = typename sign_copy_cv<T, typename make_unsigned_raw<remove_cv_t<T>>::type>::type;
+};
+
+template<typename T, bool = is_integral_v<remove_cv_t<T>>, bool = is_enum_v<remove_cv_t<T>>>
+struct make_signed_selector {};
+
+template<typename T>
+struct make_signed_selector<T, true, false> : make_signed_integral<T> {};
+
+template<typename T>
+struct make_signed_selector<T, false, true> {
+    using type =
+        typename sign_copy_cv<T, typename signed_integer_by_size<sizeof(remove_cv_t<T>)>::type>::
+            type;
+};
+
+template<typename T, bool = is_integral_v<remove_cv_t<T>>, bool = is_enum_v<remove_cv_t<T>>>
+struct make_unsigned_selector {};
+
+template<typename T>
+struct make_unsigned_selector<T, true, false> : make_unsigned_integral<T> {};
+
+template<typename T>
+struct make_unsigned_selector<T, false, true> {
+    using type =
+        typename sign_copy_cv<T, typename unsigned_integer_by_size<sizeof(remove_cv_t<T>)>::type>::
+            type;
+};
+} // namespace detail
+
+template<typename T>
+struct make_signed : detail::make_signed_selector<T> {};
+
+template<typename T>
+using make_signed_t = typename make_signed<T>::type;
+
+template<typename T>
+struct make_unsigned : detail::make_unsigned_selector<T> {};
+
+template<typename T>
+using make_unsigned_t = typename make_unsigned<T>::type;
+
 // [meta.trans.other], Other transformations
+
+// enable_if
+template<bool B, typename T = void>
+struct enable_if {};
+
+template<typename T>
+struct enable_if<true, T> {
+    using type = T;
+};
+
+template<bool B, typename T = void>
+using enable_if_t = typename enable_if<B, T>::type;
+
+// underlying_type
+template<typename T, bool = is_enum_v<T>>
+struct underlying_type {};
+
+template<typename T>
+struct underlying_type<T, true> {
+    using type = __underlying_type(T);
+};
+
+template<typename T>
+using underlying_type_t = typename underlying_type<T>::type;
 
 // type_identity
 template<typename T>
@@ -1314,6 +1688,27 @@ struct invoke_result : detail::invoke_result_impl<void, F, Args...> {};
 template<typename F, typename... Args>
 using invoke_result_t = typename invoke_result<F, Args...>::type;
 
+// unwrap_reference
+template<typename T>
+struct unwrap_reference {
+    using type = T;
+};
+
+template<typename U>
+struct unwrap_reference<cleo::reference_wrapper<U>> {
+    using type = U&;
+};
+
+template<typename T>
+using unwrap_reference_t = typename unwrap_reference<T>::type;
+
+// unwrap_ref_decay
+template<typename T>
+struct unwrap_ref_decay : unwrap_reference<decay_t<T>> {};
+
+template<typename T>
+using unwrap_ref_decay_t = typename unwrap_ref_decay<T>::type;
+
 // [meta.logical], logical operator traits
 
 // conjunction
@@ -1416,5 +1811,16 @@ struct is_nothrow_invocable_r
 
 template<typename R, typename F, typename... Args>
 inline constexpr bool is_nothrow_invocable_r_v = is_nothrow_invocable_r<R, F, Args...>::value;
+
+// meta.const.eval
+// is_constant_evaluated
+constexpr bool is_constant_evaluated() noexcept {
+    if consteval {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 } // namespace cleo
