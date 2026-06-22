@@ -31,6 +31,33 @@ concept dereferenceable = requires(T& t) {
     { *t } -> can_reference;
 };
 
+// [incrementable_traits]
+template<typename I>
+struct incrementable_traits {};
+
+template<typename T>
+    requires cleo::is_object_v<T>
+struct incrementable_traits<T*> {
+    using difference_type = cleo::ptrdiff_t;
+};
+
+template<typename T>
+struct incrementable_traits<const T> : incrementable_traits<T> {};
+
+template<typename T>
+    requires requires { typename T::difference_type; }
+struct incrementable_traits<T> {
+    using difference_type = typename T::difference_type;
+};
+
+template<typename T>
+    requires(!requires { typename T::difference_type; }) && requires(const T& a, const T& b) {
+        { a - b } -> cleo::integral;
+    }
+struct incrementable_traits<T> {
+    using difference_type = cleo::make_signed_t<decltype(cleo::declval<T>() - cleo::declval<T>())>;
+};
+
 // [iterator_traits]
 template<typename Iter>
 struct iterator_traits {
