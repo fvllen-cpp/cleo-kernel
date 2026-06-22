@@ -56,6 +56,7 @@ struct iterator_traits<T*> {
 
 namespace ranges {
 namespace detail {
+// iter_move
 void iter_move() = delete;
 
 template<typename T>
@@ -94,11 +95,12 @@ struct iter_move_fn {
         return *cleo::forward<T>(it);
     }
 };
+
 } // namespace detail
 
 inline namespace cpo {
 inline constexpr detail::iter_move_fn iter_move{};
-}
+} // namespace cpo
 } // namespace ranges
 
 // types
@@ -144,6 +146,96 @@ using iter_common_reference_t =
 template<cleo::indirectly_readable T>
 using iter_const_reference_t =
     cleo::common_reference_t<const cleo::iter_value_t<T>&&, cleo::iter_reference_t<T>>;
+
+// [indirectly_writable]
+template<typename Out, typename T>
+concept indirectly_writable = requires(Out&& out, T&& value) {
+    *out = cleo::forward<T>(value);
+    *cleo::forward<Out>(out) = cleo::forward<T>(value);
+    const_cast<const cleo::iter_reference_t<Out>&&>(*out) = cleo::forward<T>(value);
+    const_cast<const cleo::iter_reference_t<Out>&&>(*cleo::forward<Out>(out)) =
+        cleo::forward<T>(value);
+};
+
+// [indirectly_movable]
+template<typename In, typename Out>
+concept indirectly_movable = cleo::indirectly_readable<In> &&
+                             cleo::indirectly_writable<Out, cleo::iter_rvalue_reference_t<In>>;
+
+template<typename In, typename Out>
+concept indirectly_movable_storable =
+    cleo::indirectly_movable<In, Out> && cleo::indirectly_writable<Out, cleo::iter_value_t<In>> &&
+    cleo::movable<cleo::iter_value_t<In>> &&
+    cleo::constructible_from<cleo::iter_value_t<In>, cleo::iter_rvalue_reference_t<In>> &&
+    cleo::assignable_from<cleo::iter_value_t<In>&, cleo::iter_rvalue_reference_t<In>>;
+
+// [iterator.cust.swap], ranges::iter_swap
+namespace ranges {
+namespace detail {
+void iter_swap() = delete;
+
+template<typename T, typename U>
+concept has_custom_iter_swap =
+    (cleo::detail::__class_or_enum<cleo::remove_cvref_t<T>> ||
+     cleo::detail::__class_or_enum<cleo::remove_cvref_t<U>>) &&
+    requires(T&& t, U&& u) { iter_swap(cleo::forward<T>(t), cleo::forward<U>(u)); };
+
+template<typename T, typename U>
+concept can_ranges_swap_deref =
+    requires(T&& t, U&& u) { cleo::ranges::swap(*cleo::forward<T>(t), *cleo::forward<U>(u)); };
+
+template<typename T, typename U>
+concept can_exchange_iter_swap =
+    cleo::indirectly_movable_storable<cleo::remove_cvref_t<T>, cleo::remove_cvref_t<U>> &&
+    cleo::indirectly_movable_storable<cleo::remove_cvref_t<U>, cleo::remove_cvref_t<T>>;
+
+struct iter_swap_fn {
+    template<typename T, typename U>
+        requires has_custom_iter_swap<T, U>
+    constexpr void operator()(T&& t, U&& u) const noexcept(
+        noexcept(iter_swap(cleo::forward<T>(t), cleo::forward<U>(u)))
+    ) {
+        iter_swap(cleo::forward<T>(t), cleo::forward<U>(u));
+    }
+
+    template<typename T, typename U>
+        requires(!has_custom_iter_swap<T, U>) && can_ranges_swap_deref<T, U>
+    constexpr void operator()(T&& t, U&& u) const noexcept(
+        noexcept(cleo::ranges::swap(*cleo::forward<T>(t), *cleo::forward<U>(u)))
+    ) {
+        cleo::ranges::swap(*cleo::forward<T>(t), *cleo::forward<U>(u));
+    }
+
+    template<typename T, typename U>
+        requires(!has_custom_iter_swap<T, U>) && (!can_ranges_swap_deref<T, U>) &&
+                can_exchange_iter_swap<T, U>
+    constexpr void operator()(T&& t, U&& u) const {
+        auto&& x = cleo::forward<T>(t);
+        auto&& y = cleo::forward<U>(u);
+
+        using X = cleo::remove_cvref_t<T>;
+        cleo::iter_value_t<X> tmp(cleo::ranges::iter_move(x));
+        *x = cleo::ranges::iter_move(y);
+        *y = cleo::move(tmp);
+    }
+};
+} // namespace detail
+
+inline namespace cpo {
+inline constexpr detail::iter_swap_fn iter_swap{};
+} // namespace cpo
+} // namespace ranges
+
+// [indirectly_swappable]
+template<typename Iter1, typename Iter2 = Iter1>
+concept indirectly_swappable =
+    cleo::indirectly_readable<Iter1> && cleo::indirectly_readable<Iter2> &&
+    requires(const Iter1 it1, const Iter2 it2) {
+        cleo::ranges::iter_swap(it1, it1);
+        cleo::ranges::iter_swap(it2, it2);
+        cleo::ranges::iter_swap(it1, it2);
+        cleo::ranges::iter_swap(it2, it1);
+    };
 
 // [reverse_iterator]
 template<typename Iter>
@@ -256,9 +348,12 @@ public:
         return cleo::ranges::iter_move(--it);
     }
 
-    template<cleo::indirectly_swappable<Iter> Iter2>
+    template<typename Iter2>
+        requires cleo::indirectly_swappable<Iter, Iter2>
     friend constexpr void
-    iter_swap(const reverse_iterator& x, const reverse_iterator<Iter2>& y) noexcept {
+    iter_swap(const reverse_iterator& x, const reverse_iterator<Iter2>& y) noexcept(
+        noexcept(cleo::ranges::iter_swap(--cleo::declval<Iter&>(), --cleo::declval<Iter2&>()))
+    ) {
         auto it_x = x.base();
         auto it_y = y.base();
         ranges::iter_swap(--it_x, --it_y);
