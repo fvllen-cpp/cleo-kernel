@@ -150,7 +150,7 @@ template<typename Iter>
 class reverse_iterator {
 public:
     using iterator_type = Iter;
-    using iterator_concept = cleo::bidirectional_iterator_tag;
+    using iterator_concept = cleo::random_access_iterator_tag;
     using iterator_category = typename cleo::iterator_traits<Iter>::iterator_category;
     using value_type = cleo::iter_value_t<Iter>;
     using difference_type = cleo::iter_difference_t<Iter>;
@@ -167,7 +167,7 @@ public:
     }
 
     template<typename U>
-        requires(!cleo::is_same_v<U, Iter>) && cleo::convertible_to<U, Iter>
+        requires(!cleo::is_same_v<U, Iter>) && cleo::convertible_to<const U&, Iter>
     constexpr reverse_iterator(const reverse_iterator<U>& other)
         : current_(other.base()) {
     }
@@ -176,8 +176,8 @@ public:
     // implicit declaration
 
     template<typename U>
-        requires(!cleo::is_same_v<U, Iter>) && cleo::convertible_to<U, Iter> &&
-                cleo::assignable_from<Iter&, U>
+        requires(!cleo::is_same_v<U, Iter>) && cleo::convertible_to<const U&, Iter> &&
+                cleo::assignable_from<Iter&, const U&>
     constexpr reverse_iterator& operator=(const reverse_iterator<U>& other) {
         current_ = other.base();
         return *this;
@@ -206,6 +206,10 @@ public:
         }
     }
 
+    constexpr reference operator[](difference_type n) const {
+        return *(*this + n);
+    }
+
     constexpr reverse_iterator& operator++() {
         --current_;
         return *this;
@@ -224,7 +228,7 @@ public:
 
     constexpr reverse_iterator operator--(int) {
         reverse_iterator it = *this;
-        --current_;
+        ++current_;
         return it;
     }
 
@@ -246,8 +250,69 @@ public:
         return *this;
     }
 
+    friend constexpr cleo::iter_rvalue_reference_t<Iter>
+    iter_move(const reverse_iterator& i) noexcept {
+        auto it = i.base();
+        return cleo::ranges::iter_move(--it);
+    }
+
+    template<cleo::indirectly_swappable<Iter> Iter2>
+    friend constexpr void
+    iter_swap(const reverse_iterator& x, const reverse_iterator<Iter2>& y) noexcept {
+        auto it_x = x.base();
+        auto it_y = y.base();
+        ranges::iter_swap(--it_x, --it_y);
+    }
+
 private:
     Iter current_;
 };
+
+template<typename Iter1, typename Iter2>
+constexpr bool operator==(const reverse_iterator<Iter1>& lhs, const reverse_iterator<Iter2>& rhs) {
+    return lhs.base() == rhs.base();
+}
+
+template<typename Iter1, typename Iter2>
+constexpr bool operator!=(const reverse_iterator<Iter1>& lhs, const reverse_iterator<Iter2>& rhs) {
+    return lhs.base() != rhs.base();
+}
+
+template<typename Iter1, typename Iter2>
+constexpr bool operator<(const reverse_iterator<Iter1>& lhs, const reverse_iterator<Iter2>& rhs) {
+    return rhs.base() < lhs.base();
+}
+
+template<typename Iter1, typename Iter2>
+constexpr bool operator<=(const reverse_iterator<Iter1>& lhs, const reverse_iterator<Iter2>& rhs) {
+    return rhs.base() <= lhs.base();
+}
+
+template<typename Iter1, typename Iter2>
+constexpr bool operator>(const reverse_iterator<Iter1>& lhs, const reverse_iterator<Iter2>& rhs) {
+    return rhs.base() > lhs.base();
+}
+
+template<typename Iter1, typename Iter2>
+constexpr bool operator>=(const reverse_iterator<Iter1>& lhs, const reverse_iterator<Iter2>& rhs) {
+    return rhs.base() >= lhs.base();
+}
+
+template<typename Iter>
+constexpr reverse_iterator<Iter>
+operator+(cleo::iter_difference_t<Iter> n, const reverse_iterator<Iter>& it) {
+    return reverse_iterator<Iter>(it.base() - n);
+}
+
+template<typename Iter1, typename Iter2>
+constexpr auto operator-(const reverse_iterator<Iter1>& lhs, const reverse_iterator<Iter2>& rhs)
+    -> decltype(rhs.base() - lhs.base()) {
+    return rhs.base() - lhs.base();
+}
+
+template<typename Iter>
+constexpr reverse_iterator<Iter> make_reverse_iterator(Iter i) {
+    return reverse_iterator<Iter>(i);
+}
 
 } // namespace cleo
