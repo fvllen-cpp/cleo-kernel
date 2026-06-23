@@ -1,5 +1,6 @@
 #pragma once
 
+#include "concepts.hpp"
 #include "memory.hpp"
 #include "type_traits.hpp"
 #include "utility.hpp"
@@ -68,5 +69,28 @@ private:
 
 template<typename T>
 reference_wrapper(T&) -> reference_wrapper<T>;
+
+// [identity]
+struct identity {
+    using is_transparent = void;
+
+    template<typename T>
+    constexpr T&& operator()(T&& t) const noexcept {
+        return cleo::forward<T>(t);
+    }
+};
+
+// [ranges.less]
+namespace ranges {
+struct less {
+    using is_transparent = void;
+
+    template<typename T, typename U>
+        requires cleo::totally_ordered_with<T, U>
+    constexpr bool operator()(T&& t, U&& u) const {
+        return static_cast<bool>(cleo::forward<T>(t) < cleo::forward<U>(u));
+    }
+};
+} // namespace ranges
 
 } // namespace cleo
