@@ -128,6 +128,50 @@ constexpr auto to_address(const Ptr& p) noexcept {
         return cleo::to_address(p.operator->());
 }
 
+// [construct_at]
+template<typename T, typename... Args>
+constexpr T* construct_at(T* location, Args&&... args) {
+    if constexpr (cleo::is_array_v<T>)
+        return ::new (voidify(*location)) T[1]();
+    else
+        return ::new (voidify(*location)) T(cleo::forward<Args>(args)...);
+}
+
+// [destroy_at]
+template<typename T>
+constexpr void destroy_at(T* p) {
+    if constexpr (cleo::is_array_v<T>)
+        for (auto& elem : *p)
+            (destroy_at)(cleo::addressof(elem));
+    else
+        p->~T();
+}
+
+// [allocation_result]
+template<typename Pointer, typename SizeType = cleo::size_t>
+struct allocation_result {
+    Pointer ptr;
+    SizeType count;
+};
+
+// [uses_allocator]
+namespace detail::memory {
+template<typename T, typename Alloc>
+struct __uses_allocator : cleo::false_type {};
+
+template<typename T, typename Alloc>
+    requires requires { typename T::allocator_type; }
+struct __uses_allocator<T, Alloc>
+    : cleo::bool_constant<cleo::is_convertible_v<Alloc, typename T::allocator_type>> {};
+
+} // namespace detail::memory
+
+template<typename T, typename Alloc>
+struct uses_allocator : detail::memory::__uses_allocator<T, Alloc> {};
+
+template<typename T, typename Alloc>
+constexpr bool uses_allocator_v = uses_allocator<T, Alloc>::value;
+
 // [allocator_traits]
 namespace detail {
 namespace memory {
